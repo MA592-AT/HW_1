@@ -1,0 +1,132 @@
+---
+title: "HW_1"
+author: "Amie Thomas"
+date: "2024-02-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+#load in data
+data_1000 <- read.csv("Sample_Size_1000.csv")
+
+#split data
+split_data <- split(data_1000, ifelse(seq_along(data_1000) <= length(data_1000)/2, "first_half", "second_half"))
+
+nuisance <- split_data$first_half
+effect <- split_data$second_half
+
+#split fold 1 into treatment and control
+treatment_nu <- nuisance |> filter(a == 1)
+control_nu <- nuisance |> filter(a == 0)
+
+#treat and control models with no interaction
+treat_mod1a <- lm(y ~ 1 + x, treatment_nu)
+control_mod1a <- lm(y ~ 1 + x, control_nu)
+
+#predict means for models with fold 2
+pred_treat1a <- mean(as.matrix(predict(treat_mod1a, effect)))
+pred_control1a <-mean(as.matrix(predict(control_mod1a, effect)))
+
+#average treatment effect
+pred_treat1a - pred_control1a
+
+```
+```{r}
+#treat and control models with interaction
+#a is constant, why interaction term
+treat_mod1b <- lm(y ~ a*x, treatment_nu)
+control_mod1b <- lm(y ~ a*x, control_nu)
+
+#predict means for model with fold 2
+pred_treat1b <- mean(as.matrix(predict(treat_mod1b, effect)))
+pred_control1b <- mean(as.matrix(predict(control_mod1b, effect)))
+
+#average treatment effect
+pred_treat1b-pred_control1b
+
+```
+
+```{r}
+#polynomials models
+treat_mod1c <- lm(y ~ 1 + x + I(x^2) + I(x^3), treatment_nu)
+control_mod1c <- lm(y ~ 1 + x + I(x^2) + I(x^3), control_nu)
+
+#predict model with fold 2
+pred_treat1c <- mean(as.matrix(predict(treat_mod1c, effect)))
+pred_control1c <- mean(as.matrix(predict(control_mod1c, effect)))
+
+#average treatment effect
+pred_treat1c - pred_control1c
+
+```
+```{r}
+# part d
+treat_mod1d <- lm(y ~ 1 + x + I(x^2) + I(x^3) + I(x^4) + I(x^5) + I(x^6), treatment_nu)
+control_mod1d <- lm(y ~ 1 + x + I(x^2) + I(x^3) + I(x^4) + I(x^5) + I(x^6), control_nu)
+
+#predict model with fold 2
+pred_treat1d <- mean(as.matrix(predict(treat_mod1d, effect)))
+pred_control1d <- mean(as.matrix(predict(control_mod1d, effect)))
+
+#average treatment effect
+pred_treat1d - pred_control1d
+
+```
+```{r}
+#estimated impution outcome regression function
+treat_mod1e <- lm(y ~ 1 + x + I(x^2) + I(x^3) + I(x^4) + I(x^5) + I(x^6), treatment_nu)
+control_mod1e <- lm(y ~ 1 + x + I(x^2) + I(x^3) + I(x^4) + I(x^5) + I(x^6), control_nu)
+
+#OR formula
+pred_treat1e <- mean(effect$a*(effect$y - predict(control_mod1e, effect)))
+pred_control1e <- mean((1-effect$a)*predict(treat_mod1e, effect) - effect$y)
+
+#average treatment effect
+pred_treat1e + pred_control1e
+```
+
+```{r}
+#estimated propensity score model
+prop_mod <- glm(a ~ 1 + x + I(x^2), family = binomial(link = "logit"), nuisance)
+
+#propensity score for nuisance
+prop_score <- predict(prop_mod, nuisance, type = "response")
+
+#test df
+nuisance_2 <- nuisance
+
+#add ps to test df
+nuisance_2$ps <- prop_score
+
+treat_nu_2 <- nuisance_2 |> filter(a == 0)
+control_nu_2 <- nuisance_2 |> filter(a == 1)
+
+treat_mod1f <- lm(y ~ 1 + ps + I(ps^2) + I(ps^3) + I(ps^4) + I(ps^5) + I(ps^6), treat_nu_2)
+control_mod1f <- lm(y ~ 1 + ps + I(ps^2) + I(ps^3) + I(ps^4) + I(ps^5) + I(ps^6), control_nu_2)
+
+#propensity score for effect
+prop_score_2 <- predict(prop_mod, effect, type = "response")
+effect_2 <- effect
+effect_2$ps <- prop_score_2
+
+pred_treat1f <- mean(as.matrix(predict(treat_mod1f, effect_2)))
+pred_control1f <- mean(as.matrix(predict(control_mod1f, effect_2)))
+
+#average treatment effect
+pred_treat1f - pred_control1f 
+
+
+```
+
+
+
+
+
