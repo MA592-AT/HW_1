@@ -11,11 +11,16 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(tidyverse)
+library(boot)
 ```
 
 ```{r}
 #load in data
 data_1000 <- read.csv("Sample_Size_1000.csv")
+data_2000 <- read.csv("Sample_Size_2000.csv")
+data_5000 <- read.csv("Sample_Size_5000.csv")
+data_10000 <- read.csv("Sample_Size_10000.csv")
+data_20000 <- read.csv("Sample_Size_20000.csv")
 
 #split data
 split_data <- split(data_1000, ifelse(seq_along(data_1000) <= length(data_1000)/2, "first_half", "second_half"))
@@ -39,6 +44,7 @@ pred_control1a <-mean(as.matrix(predict(control_mod1a, effect)))
 pred_treat1a - pred_control1a
 
 ```
+
 ```{r}
 #treat and control models with interaction
 #a is constant, why interaction term
@@ -106,8 +112,8 @@ nuisance_2 <- nuisance
 #add ps to test df
 nuisance_2$ps <- prop_score
 
-treat_nu_2 <- nuisance_2 |> filter(a == 0)
-control_nu_2 <- nuisance_2 |> filter(a == 1)
+treat_nu_2 <- nuisance_2 |> filter(a == 1)
+control_nu_2 <- nuisance_2 |> filter(a == 0)
 
 treat_mod1f <- lm(y ~ 1 + ps + I(ps^2) + I(ps^3) + I(ps^4) + I(ps^5) + I(ps^6), treat_nu_2)
 control_mod1f <- lm(y ~ 1 + ps + I(ps^2) + I(ps^3) + I(ps^4) + I(ps^5) + I(ps^6), control_nu_2)
@@ -123,10 +129,498 @@ pred_control1f <- mean(as.matrix(predict(control_mod1f, effect_2)))
 #average treatment effect
 pred_treat1f - pred_control1f 
 
+```
 
+```{r}
+#IPW order one polynomial
+prop_mod_g <- glm(a ~ 1 + x, family = binomial(link = "logit"), nuisance)
+
+#propensity score
+ps_g <- predict(prop_mod, effect, type = "response")
+
+#IPW
+g_1 <- mean((effect$a)/(ps_g)*(effect$y))
+g_2 <- mean((1-effect$a)/(1-(ps_g)*(effect$y)))
+
+#average treatment effect
+g_1-g_2
+```
+
+```{r}
+#IPW order 2 polynomial
+prop_mod_h <- glm(a ~ 1 + x + I(x^2), family = binomial(link = "logit"), nuisance)
+
+#propensity score
+ps_h <- predict(prop_mod_h, effect, type = "response")
+
+#IPW
+h_1 <- mean((effect$a)/(ps_h)*(effect$y))
+h_2 <- mean((1-effect$a)/ (1-(ps_h)*(effect$y)))
+
+#average treatment effect
+h_1-h_2
+```
+```{r}
+#order 2 polynomial hajek estimator
+prop_mod_i <- glm(a ~ 1 + x + I(x^2), family = binomial(link = "logit"), nuisance)
+
+#propensity score
+ps_i <- predict(prop_mod_i, effect, type = "response")
+
+#hajek estimator
+i_1 <- mean(((effect$a)/(ps_i))/ (mean((effect$a)/(ps_i))) * (effect$y))
+i_2 <- mean(((1-effect$a)/(1-ps_i))/ (mean((1-effect$a)/(1-ps_i))) *(effect$y))
+
+#hajek average treatment effect
+i_1 - i_2
+```
+```{r}
+#compare across sample sizes for part a
+ate_a <- function(data, indices){
+  newdata <- data[indices, ]
+  split_data <- split(newdata, ifelse(seq_along(newdata) <= length(newdata)/2, "first_half", "second_half"))
+
+  nuisance <- split_data$first_half
+  effect <- split_data$second_half
+
+  #split fold 1 into treatment and control
+  treatment_nu <- nuisance |> filter(a == 1)
+  control_nu <- nuisance |> filter(a == 0)
+
+  #treat and control models with no interaction
+  treat_mod1a <- lm(y ~ 1 + x, treatment_nu)
+  control_mod1a <- lm(y ~ 1 + x, control_nu)
+
+  #predict means for models with fold 2
+  pred_treat1a <- mean(as.matrix(predict(treat_mod1a, effect)))
+  pred_control1a <-mean(as.matrix(predict(control_mod1a, effect)))
+  
+  return(pred_treat1a - pred_control1a)
+}
+
+#bootstrap
+boot_1000a <- boot(data_1000, ate_a, R = 1000)
+boot_2000a <-boot(data_2000, ate_a, R = 1000)
+boot_5000a <-boot(data_5000, ate_a, R = 1000)
+boot_10000a <-boot(data_10000, ate_a, R = 1000)
+boot_20000a <-boot(data_20000, ate_a, R = 1000)
+
+#dataframe for ATE's
+a_box_df <- data.frame(ate_1000 = boot_1000a$t,
+                       ate_2000 = boot_2000a$t,
+                       ate_5000 = boot_5000a$t,
+                       ate_10000 = boot_10000a$t,
+                       ate_20000 = boot_20000a$t)
+#boxplots
+plot_a <- boxplot(a_box_df,
+        main = "A ATE Boxplot",  
+        xlab = "Sample Size",  
+        ylab = "ATE Value",     
+        col = "lightblue",      
+        border = "blue",        
+        notch = TRUE            
+)
+```
+
+```{r}
+#compare across sample sizes for part b
+ate_b <- function(data, indices){
+   newdata <- data[indices, ]
+  split_data <- split(newdata, ifelse(seq_along(newdata) <= length(newdata)/2, "first_half", "second_half"))
+
+  nuisance <- split_data$first_half
+  effect <- split_data$second_half
+
+  #split fold 1 into treatment and control
+  treatment_nu <- nuisance |> filter(a == 1)
+  control_nu <- nuisance |> filter(a == 0)
+
+  treat_mod1b <- lm(y ~ a*x, treatment_nu)
+  control_mod1b <- lm(y ~ a*x, control_nu)
+
+  #predict means for model with fold 2
+  pred_treat1b <- mean(as.matrix(predict(treat_mod1b, effect)))
+  pred_control1b <- mean(as.matrix(predict(control_mod1b, effect)))
+
+  #average treatment effect
+  return(pred_treat1b-pred_control1b)
+}
+
+#bootstrap
+boot_1000b <- suppressWarnings(boot(data_1000, ate_b, R = 1000))
+boot_2000b <-suppressWarnings(boot(data_2000, ate_b, R = 1000))
+boot_5000b <-suppressWarnings(boot(data_5000, ate_b, R = 1000))
+boot_10000b <-suppressWarnings(boot(data_10000, ate_b, R = 1000))
+boot_20000b <-suppressWarnings(boot(data_20000, ate_b, R = 1000))
+
+#dataframe for ATE's
+b_box_df <- data.frame(ate_1000 = boot_1000b$t,
+                       ate_2000 = boot_2000b$t,
+                       ate_5000 = boot_5000b$t,
+                       ate_10000 = boot_10000b$t,
+                       ate_20000 = boot_20000b$t)
+#boxplots
+plot_b <- boxplot(b_box_df,
+        main = "B ATE Boxplot",  
+        xlab = "Sample Size",  
+        ylab = "ATE Value",     
+        col = "purple",      
+        border = "blue",        
+        notch = TRUE  )    
+```
+
+```{r}
+ate_c <- function(data, indices){
+   newdata <- data[indices, ]
+  split_data <- split(newdata, ifelse(seq_along(newdata) <= length(newdata)/2, "first_half", "second_half"))
+
+  nuisance <- split_data$first_half
+  effect <- split_data$second_half
+
+  #split fold 1 into treatment and control
+  treatment_nu <- nuisance |> filter(a == 1)
+  control_nu <- nuisance |> filter(a == 0)
+  
+  #polynomials models
+  treat_mod1c <- lm(y ~ 1 + x + I(x^2) + I(x^3), treatment_nu)
+  control_mod1c <- lm(y ~ 1 + x + I(x^2) + I(x^3), control_nu)
+
+  #predict model with fold 2
+  pred_treat1c <- mean(as.matrix(predict(treat_mod1c, effect)))
+  pred_control1c <- mean(as.matrix(predict(control_mod1c, effect)))
+
+  #average treatment effect
+  return(pred_treat1c - pred_control1c)
+}
+
+#bootstrap
+boot_1000c <- suppressWarnings(boot(data_1000, ate_c, R = 1000))
+boot_2000c <-suppressWarnings(boot(data_2000, ate_c, R = 1000))
+boot_5000c <-suppressWarnings(boot(data_5000, ate_c, R = 1000))
+boot_10000c <-suppressWarnings(boot(data_10000, ate_c, R = 1000))
+boot_20000c <-suppressWarnings(boot(data_20000, ate_c, R = 1000))
+
+#dataframe for ATE's
+c_box_df <- data.frame(ate_1000 = boot_1000c$t,
+                       ate_2000 = boot_2000c$t,
+                       ate_5000 = boot_5000c$t,
+                       ate_10000 = boot_10000c$t,
+                       ate_20000 = boot_20000c$t)
+#boxplots
+plot_c <- boxplot(c_box_df,
+        main = "C ATE Boxplot",  
+        xlab = "Sample Size",  
+        ylab = "ATE Value",     
+        col = "red",      
+        border = "red",        
+        notch = TRUE  )   
 ```
 
 
+```{r}
+ate_d <- function(data, indices){
+   newdata <- data[indices, ]
+   split_data <- split(newdata, ifelse(seq_along(newdata) <= length(newdata)/2, "first_half", "second_half"))
+
+  nuisance <- split_data$first_half
+  effect <- split_data$second_half
+
+  #split fold 1 into treatment and control
+  treatment_nu <- nuisance |> filter(a == 1)
+  control_nu <- nuisance |> filter(a == 0)
+  
+  treat_mod1d <- lm(y ~ 1 + x + I(x^2) + I(x^3) + I(x^4) + I(x^5) + I(x^6), treatment_nu)
+  control_mod1d <- lm(y ~ 1 + x + I(x^2) + I(x^3) + I(x^4) + I(x^5) + I(x^6), control_nu)
+
+  #predict model with fold 2
+  pred_treat1d <- mean(as.matrix(predict(treat_mod1d, effect)))
+  pred_control1d <- mean(as.matrix(predict(control_mod1d, effect)))
+
+  #average treatment effect
+  return(pred_treat1d - pred_control1d)
+}
+
+#bootstrap
+boot_1000d <- suppressWarnings(boot(data_1000, ate_d, R = 1000))
+boot_2000d <-suppressWarnings(boot(data_2000, ate_d, R = 1000))
+boot_5000d <-suppressWarnings(boot(data_5000, ate_d, R = 1000))
+boot_10000d <-suppressWarnings(boot(data_10000, ate_d, R = 1000))
+boot_20000d <-suppressWarnings(boot(data_20000, ate_d, R = 1000))
+
+#dataframe for ATE's
+d_box_df <- data.frame(ate_1000 = boot_1000d$t,
+                       ate_2000 = boot_2000d$t,
+                       ate_5000 = boot_5000d$t,
+                       ate_10000 = boot_10000d$t,
+                       ate_20000 = boot_20000d$t)
+#boxplots
+plot_d <- boxplot(d_box_df,
+        main = "D ATE Boxplot",  
+        xlab = "Sample Size",  
+        ylab = "ATE Value",     
+        col = "green",      
+        border = "green",        
+        notch = TRUE  )   
+
+```
+
+```{r}
+ate_e <- function(data, indices){
+   newdata <- data[indices, ]
+   split_data <- split(newdata, ifelse(seq_along(newdata) <= length(newdata)/2, "first_half", "second_half"))
+
+  nuisance <- split_data$first_half
+  effect <- split_data$second_half
+
+  #split fold 1 into treatment and control
+  treatment_nu <- nuisance |> filter(a == 1)
+  control_nu <- nuisance |> filter(a == 0)
+  
+  #estimated impution outcome regression function
+  treat_mod1e <- lm(y ~ 1 + x + I(x^2) + I(x^3) + I(x^4) + I(x^5) + I(x^6), treatment_nu)
+  control_mod1e <- lm(y ~ 1 + x + I(x^2) + I(x^3) + I(x^4) + I(x^5) + I(x^6), control_nu)
+
+  #OR formula
+  pred_treat1e <- mean(effect$a*(effect$y - predict(control_mod1e, effect)))
+  pred_control1e <- mean((1-effect$a)*predict(treat_mod1e, effect) - effect$y)
+
+  #average treatment effect
+  return(pred_treat1e + pred_control1e)
+}
+
+#bootstrap
+boot_1000e <- suppressWarnings(boot(data_1000, ate_e, R = 1000))
+boot_2000e <-suppressWarnings(boot(data_2000, ate_e, R = 1000))
+boot_5000e <-suppressWarnings(boot(data_5000, ate_e, R = 1000))
+boot_10000e <-suppressWarnings(boot(data_10000, ate_e, R = 1000))
+boot_20000e <-suppressWarnings(boot(data_20000, ate_e, R = 1000))
+
+#dataframe for ATE's
+e_box_df <- data.frame(ate_1000 = boot_1000e$t,
+                       ate_2000 = boot_2000e$t,
+                       ate_5000 = boot_5000e$t,
+                       ate_10000 = boot_10000e$t,
+                       ate_20000 = boot_20000e$t)
+#boxplots
+plot_e <- boxplot(e_box_df,
+        main = "E ATE Boxplot",  
+        xlab = "Sample Size",  
+        ylab = "ATE Value",     
+        col = "orange",      
+        border = "black",        
+        notch = TRUE  )   
+
+```
+
+```{r}
+ate_f <- function(data, indices){
+   newdata <- data[indices, ]
+   split_data <- split(newdata, ifelse(seq_along(newdata) <= length(newdata)/2, "first_half", "second_half"))
+
+  nuisance <- split_data$first_half
+  effect <- split_data$second_half
+
+  #split fold 1 into treatment and control
+  treatment_nu <- nuisance |> filter(a == 1)
+  control_nu <- nuisance |> filter(a == 0)
+  
+  #estimated propensity score model
+  prop_mod <- glm(a ~ 1 + x + I(x^2), family = binomial(link = "logit"), nuisance)
+
+  #propensity score for nuisance
+  prop_score <- predict(prop_mod, nuisance, type = "response")
+
+  #test df
+  nuisance_2 <- nuisance
+
+  #add ps to test df
+  nuisance_2$ps <- prop_score
+
+  treat_nu_2 <- nuisance_2 |> filter(a == 1)
+  control_nu_2 <- nuisance_2 |> filter(a == 0)
+
+  treat_mod1f <- lm(y ~ 1 + ps + I(ps^2) + I(ps^3) + I(ps^4) + I(ps^5) + I(ps^6), treat_nu_2)
+  control_mod1f <- lm(y ~ 1 + ps + I(ps^2) + I(ps^3) + I(ps^4) + I(ps^5) + I(ps^6), control_nu_2)
+
+  #propensity score for effect
+  prop_score_2 <- predict(prop_mod, effect, type = "response")
+  effect_2 <- effect
+  effect_2$ps <- prop_score_2
+
+  pred_treat1f <- mean(as.matrix(predict(treat_mod1f, effect_2)))
+  pred_control1f <- mean(as.matrix(predict(control_mod1f, effect_2)))
+
+  #average treatment effect
+  return(pred_treat1f - pred_control1f)
+}
+
+#bootstrap
+boot_1000f <- suppressWarnings(boot(data_1000, ate_f, R = 1000))
+boot_2000f <-suppressWarnings(boot(data_2000, ate_f, R = 1000))
+boot_5000f <-suppressWarnings(boot(data_5000, ate_f, R = 1000))
+boot_10000f <-suppressWarnings(boot(data_10000, ate_f, R = 1000))
+boot_20000f <-suppressWarnings(boot(data_20000, ate_f, R = 1000))
+
+#dataframe for ATE's
+f_box_df <- data.frame(ate_1000 = boot_1000f$t,
+                       ate_2000 = boot_2000f$t,
+                       ate_5000 = boot_5000f$t,
+                       ate_10000 = boot_10000f$t,
+                       ate_20000 = boot_20000f$t)
+#boxplots
+plot_f <- boxplot(f_box_df,
+        main = "f ATE Boxplot",  
+        xlab = "Sample Size",  
+        ylab = "ATE Value",     
+        col = "pink",      
+        border = "black",        
+        notch = TRUE  )   
+```
+
+```{r}
+ate_g <- function(data, indices){
+   newdata <- data[indices, ]
+   split_data <- split(newdata, ifelse(seq_along(newdata) <= length(newdata)/2, "first_half", "second_half"))
+
+  nuisance <- split_data$first_half
+  effect <- split_data$second_half
+
+  #split fold 1 into treatment and control
+  treatment_nu <- nuisance |> filter(a == 1)
+  control_nu <- nuisance |> filter(a == 0)
 
 
+  #IPW order one polynomial
+  prop_mod_g <- glm(a ~ 1 + x, family = binomial(link = "logit"), nuisance)
 
+  #propensity score
+  ps_g <- predict(prop_mod, effect, type = "response")
+
+  #IPW
+  g_1 <- mean((effect$a)/(ps_g)*(effect$y))
+  g_2 <- mean((1-effect$a)/(1-(ps_g)*(effect$y)))
+
+  #average treatment effect
+  return(g_1-g_2)
+  
+}
+
+#bootstrap
+boot_1000g <- suppressWarnings(boot(data_1000, ate_g, R = 1000))
+boot_2000g <-suppressWarnings(boot(data_2000, ate_g, R = 1000))
+boot_5000g <-suppressWarnings(boot(data_5000, ate_g, R = 1000))
+boot_10000g <-suppressWarnings(boot(data_10000, ate_g, R = 1000))
+boot_20000g <-suppressWarnings(boot(data_20000, ate_g, R = 1000))
+
+#dataframe for ATE's
+g_box_df <- data.frame(ate_1000 = boot_1000g$t,
+                       ate_2000 = boot_2000g$t,
+                       ate_5000 = boot_5000g$t,
+                       ate_10000 = boot_10000g$t,
+                       ate_20000 = boot_20000g$t)
+#boxplots
+plot_g <- boxplot(g_box_df,
+        main = "G ATE Boxplot",  
+        xlab = "Sample Size",  
+        ylab = "ATE Value",     
+        col = "violet",      
+        border = "black",        
+        notch = TRUE  )   
+
+```
+
+```{r}
+ate_h <- function(data, indices){
+   newdata <- data[indices, ]
+   split_data <- split(newdata, ifelse(seq_along(newdata) <= length(newdata)/2, "first_half", "second_half"))
+
+  nuisance <- split_data$first_half
+  effect <- split_data$second_half
+
+  #IPW order 2 polynomial
+  prop_mod_h <- glm(a ~ 1 + x + I(x^2), family = binomial(link = "logit"), nuisance)
+
+  #propensity score
+  ps_h <- predict(prop_mod_h, effect, type = "response")
+
+  #IPW
+  h_1 <- mean((effect$a)/(ps_h)*(effect$y))
+  h_2 <- mean((1-effect$a)/ (1-(ps_h)*(effect$y)))
+
+  #average treatment effect
+  return(h_1-h_2)
+  
+}
+
+#bootstrap
+boot_1000h <- suppressWarnings(boot(data_1000, ate_h, R = 1000))
+boot_2000h <-suppressWarnings(boot(data_2000, ate_h, R = 1000))
+boot_5000h <-suppressWarnings(boot(data_5000, ate_h, R = 1000))
+boot_10000h <-suppressWarnings(boot(data_10000, ate_h, R = 1000))
+boot_20000h <-suppressWarnings(boot(data_20000, ate_h, R = 1000))
+
+#dataframe for ATE's
+h_box_df <- data.frame(ate_1000 = boot_1000h$t,
+                       ate_2000 = boot_2000h$t,
+                       ate_5000 = boot_5000h$t,
+                       ate_10000 = boot_10000h$t,
+                       ate_20000 = boot_20000h$t)
+#boxplots
+plot_h <- boxplot(h_box_df,
+        main = "H ATE Boxplot",  
+        xlab = "Sample Size",  
+        ylab = "ATE Value",     
+        col = "white",      
+        border = "black",        
+        notch = TRUE  )   
+```
+
+```{r}
+ate_i <- function(data, indices){
+   newdata <- data[indices, ]
+   split_data <- split(newdata, ifelse(seq_along(newdata) <= length(newdata)/2, "first_half", "second_half"))
+
+  nuisance <- split_data$first_half
+  effect <- split_data$second_half
+
+  #order 2 polynomial hajek estimator
+  prop_mod_i <- glm(a ~ 1 + x + I(x^2), family = binomial(link = "logit"), nuisance)
+
+  #propensity score
+  ps_i <- predict(prop_mod_i, effect, type = "response")
+
+  #hajek estimator
+  i_1 <- mean(((effect$a)/(ps_i))/ (mean((effect$a)/(ps_i))) * (effect$y))
+  i_2 <- mean(((1-effect$a)/(1-ps_i))/ (mean((1-effect$a)/(1-ps_i))) *(effect$y))
+
+  #hajek average treatment effect
+  return(i_1 - i_2)
+}
+
+#bootstrap
+boot_1000i <- suppressWarnings(boot(data_1000, ate_i, R = 1000))
+boot_2000i <-suppressWarnings(boot(data_2000, ate_i, R = 1000))
+boot_5000i <-suppressWarnings(boot(data_5000, ate_i, R = 1000))
+boot_10000i <-suppressWarnings(boot(data_10000, ate_i, R = 1000))
+boot_20000i <-suppressWarnings(boot(data_20000, ate_i, R = 1000))
+
+#dataframe for ATE's
+i_box_df <- data.frame(ate_1000 = boot_1000i$t,
+                       ate_2000 = boot_2000i$t,
+                       ate_5000 = boot_5000i$t,
+                       ate_10000 = boot_10000i$t,
+                       ate_20000 = boot_20000i$t)
+#boxplots
+plot_i <- boxplot(i_box_df,
+        main = "I ATE Boxplot",  
+        xlab = "Sample Size",  
+        ylab = "ATE Value",     
+        col = "grey",      
+        border = "black",        
+        notch = TRUE  )   
+
+```
+
+```{r}
+
+```
