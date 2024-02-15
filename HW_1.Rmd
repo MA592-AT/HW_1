@@ -312,7 +312,7 @@ plot_c <- boxplot(c_box_df,
         xlab = "Sample Size",  
         ylab = "ATE Value",     
         col = "red",      
-        border = "red",        
+        border = "black",        
         notch = TRUE  )   
 ```
 
@@ -359,7 +359,7 @@ plot_d <- boxplot(d_box_df,
         xlab = "Sample Size",  
         ylab = "ATE Value",     
         col = "green",      
-        border = "green",        
+        border = "black",        
         notch = TRUE  )   
 
 ```
@@ -622,5 +622,129 @@ plot_i <- boxplot(i_box_df,
 ```
 
 ```{r}
+#CI all samples for A
+quantile(boot_1000a$t, probs = c(0.025, 0.075))
+quantile(boot_2000a$t, probs = c(0.025, 0.075))
+quantile(boot_5000a$t, probs = c(0.25, 0.75))
+quantile(boot_10000a$t, probs = c(0.25, 0.75))
+quantile(boot_20000a$t, probs = c(0.25, 0.75))
 
+#CI all samples for B
+quantile(boot_1000b$t, probs = c(0.25, 0.75))
+quantile(boot_2000b$t, probs = c(0.25, 0.75))
+quantile(boot_5000b$t, probs = c(0.25, 0.75))
+quantile(boot_10000b$t, probs = c(0.25, 0.75))
+quantile(boot_20000b$t, probs = c(0.25, 0.75))
+
+#CI all samples for C
+quantile(boot_1000c$t, probs = c(0.25, 0.75))
+quantile(boot_2000c$t, probs = c(0.25, 0.75))
+quantile(boot_5000c$t, probs = c(0.25, 0.75))
+quantile(boot_10000c$t, probs = c(0.25, 0.75))
+quantile(boot_20000c$t, probs = c(0.25, 0.75))
+
+#CI all samples for D
+quantile(boot_1000d$t, probs = c(0.25, 0.75))
+quantile(boot_2000d$t, probs = c(0.25, 0.75))
+quantile(boot_5000d$t, probs = c(0.25, 0.75))
+quantile(boot_10000d$t, probs = c(0.25, 0.75))
+quantile(boot_20000d$t, probs = c(0.25, 0.75))
+
+#CI all samples for E
+quantile(boot_1000e$t, probs = c(0.25, 0.75))
+quantile(boot_2000e$t, probs = c(0.25, 0.75))
+quantile(boot_5000e$t, probs = c(0.25, 0.75))
+quantile(boot_10000e$t, probs = c(0.25, 0.75))
+quantile(boot_20000e$t, probs =c(0.25, 0.75))
+
+#CI all samples for F
+quantile(boot_1000f$t, probs = c(0.25, 0.75))
+quantile(boot_2000f$t, probs = c(0.25, 0.75))
+quantile(boot_5000f$t, probs = c(0.25, 0.75))
+quantile(boot_10000f$t, probs = c(0.25, 0.75))
+quantile(boot_20000f$t, probs = c(0.25, 0.75))
+
+#CI all samples for G
+quantile(boot_1000g$t, probs = c(0.25, 0.75))
+quantile(boot_2000g$t, probs = c(0.25, 0.75))
+quantile(boot_5000g$t, probs = c(0.25, 0.75))
+quantile(boot_10000g$t, probs = c(0.25, 0.75))
+quantile(boot_20000g$t, probs = c(0.25, 0.75))
+
+#CI all samples for H
+quantile(boot_1000h$t, probs = c(0.25, 0.75))
+quantile(boot_2000h$t, probs = c(0.25, 0.75))
+quantile(boot_5000h$t, probs = c(0.25, 0.75))
+quantile(boot_10000h$t, probs = c(0.25, 0.75))
+quantile(boot_20000h$t, probs = c(0.25, 0.75))
+
+#CI all samples for I
+quantile(boot_1000h$t, probs = c(0.25, 0.75))
+quantile(boot_2000h$t, probs = c(0.25, 0.75))
+quantile(boot_5000h$t, probs = c(0.25, 0.75))
+quantile(boot_10000h$t, probs = c(0.25, 0.75))
+quantile(boot_20000h$t, probs = c(0.25, 0.75))
+
+#point estimate for a
+boot_1000a$t0
+boot_2000a$t0
+boot_5000a$t0
+boot_10000a$t0
+boot_20000a$t0
+
+#point estimate for b
+boot_1000b$t0
+boot_2000b$t0
+boot_5000b$t0
+boot_10000b$t0
+boot_20000b$t0
+
+#point estimate for c
+boot_1000c$t0
+boot_2000c$t0
+boot_5000c$t0
+boot_10000c$t0
+boot_20000c$t0
+
+#point estimate for d
+boot_1000d$t0
+boot_2000d$t0
+boot_5000d$t0
+boot_10000d$t0
+boot_20000d$t0
+
+#point estimate for e
+boot_1000e$t0
+boot_2000e$t0
+boot_5000e$t0
+boot_10000e$t0
+boot_20000e$t0
+
+#point estimate for f
+boot_1000f$t0
+boot_2000f$t0
+boot_5000f$t0
+boot_10000f$t0
+boot_20000f$t0
+
+#point estimate for g
+boot_1000g$t0
+boot_2000g$t0
+boot_5000g$t0
+boot_10000g$t0
+boot_20000g$t0
+
+#point estimate for h
+boot_1000h$t0
+boot_2000h$t0
+boot_5000h$t0
+boot_10000h$t0
+boot_20000h$t0
+
+#point estimate for i
+boot_1000i$t0
+boot_2000i$t0
+boot_5000i$t0
+boot_10000i$t0
+boot_20000i$t0
 ```
